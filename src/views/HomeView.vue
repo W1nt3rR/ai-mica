@@ -8,7 +8,7 @@
                 <div
                     class="point"
                     v-for="point in calculatedPoints"
-                    :key="point.x + point.y"
+                    :key="`point-${point.x}-${point.y}`"
                     :style="{
                         left: point.x * micaGap + 'px',
                         top: point.y * micaGap + 'px',
@@ -18,7 +18,7 @@
                 <div
                     class="connection"
                     v-for="connection in calculatedConnections"
-                    :key="`connection-${connection}`"
+                    :key="`connection-${connection.x1}-${connection.y1}-${connection.x2}-${connection.y2}`"
                     :style="{
                         left: connection.x1 * micaGap + 'px',
                         top: connection.y1 * micaGap + 'px',
@@ -30,7 +30,7 @@
                 <div
                     class="figure"
                     v-for="figure in calculatedFigures"
-                    :key="figure.x + figure.y"
+                    :key="`figure-${figure.x}-${figure.y}`"
                     :style="{
                         left: figure.x * micaGap + 'px',
                         top: figure.y * micaGap + 'px',
@@ -52,10 +52,10 @@
         mapName: "map1",
         difficulty: "medium",
         gameState: {
-            playerTurn: "black",
-            pointsLeftoverBlack: 9,
-            pointsLeftoverWhite: 9,
-            pointsTaken: [{ point: "D3", color: "white" }],
+            player: "black",
+            unplacedPiecesBlack: 8,
+            unplacedPiecesWhite: 8,
+            occupiedPoints: [{ point: "D3", player: "white" }],
         },
     });
 
@@ -127,8 +127,8 @@
 
         const figures = [];
 
-        for (let index = 0; index < gameState.value.gameState.pointsTaken.length; index++) {
-            const point = gameState.value.gameState.pointsTaken[index];
+        for (let index = 0; index < gameState.value.gameState.occupiedPoints.length; index++) {
+            const point = gameState.value.gameState.occupiedPoints[index];
 
             const coords = separateChessCoordToXY(point.point);
             if (!coords) continue;
@@ -136,7 +136,7 @@
             figures.push({
                 x: coords.x,
                 y: coords.y,
-                color: point.color,
+                color: point.player,
             });
         }
 

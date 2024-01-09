@@ -10,15 +10,15 @@ export interface ICalculateMoveDTO {
 }
 
 export interface IGameState {
-    pointsTaken: Array<ITakenPoint>;
-    pointsLeftoverBlack: number;
-    pointsLeftoverWhite: number;
-    playerTurn: TPlayer;
+    occupiedPoints: Array<ITakenPoint>;
+    unplacedPiecesBlack: number;
+    unplacedPiecesWhite: number;
+    player: TPlayer;
 }
 
 export interface ITakenPoint {
     point: string;
-    color: TPlayer;
+    player: TPlayer;
 }
 
 export interface IMapObject {
