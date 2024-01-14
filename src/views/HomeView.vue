@@ -1,4 +1,14 @@
 <template>
+    <div
+        class="full-screen-overlay"
+        v-if="loading"
+    >
+        <span
+            v-if="loading"
+            class="loader"
+        ></span>
+    </div>
+
     <div id="home">
         <div class="mica-container">
             <div
@@ -65,6 +75,7 @@
             ],
         },
     });
+    const loading = ref<boolean>(false);
 
     const mapsData = ref<Array<IMapObject> | null>(null);
     const selectedMap = ref<IMapData | null>(null);
@@ -305,5 +316,40 @@
             }
         }
     }
+
+    .full-screen-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 9999;
+
+        width: 100vw;
+        height: 100vh;
+
+        background-color: rgba(0, 0, 0, 0.3);
+
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .loader {
+        width: 48px;
+        height: 48px;
+        border: 5px solid rgba($color: #ffffff, $alpha: 0.75);
+        border-bottom-color: transparent;
+        border-radius: 50%;
+        display: inline-block;
+        box-sizing: border-box;
+        animation: rotation 1s linear infinite;
+    }
+
+    @keyframes rotation {
+        0% {
+            transform: rotate(0deg);
+        }
+        100% {
+            transform: rotate(360deg);
+        }
+    }
 </style>
-../vueDirectives
