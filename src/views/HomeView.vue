@@ -4,6 +4,7 @@
             <div
                 class="mica"
                 ref="micaRef"
+                v-resize="calculateGap"
             >
                 <div
                     class="point"
@@ -46,7 +47,8 @@
 
 <script setup lang="ts">
     import { ref, onMounted, computed } from "vue";
-    import Client, { type ICalculateMoveDTO, type IMapData, type IMapObject } from "@/Client";
+    import Client, { type ICalculateMoveDTO, type IMapData, type IMapObject, type ITakenPoint, type IPoint } from "@/Client";
+    import { vResize } from "../vueDirectives"
 
     const gameState = ref<ICalculateMoveDTO>({
         mapName: "map1",
@@ -69,6 +71,7 @@
     const micaSize = ref<number | null>(null);
 
     const micaRef = ref<HTMLElement | null>(null);
+    const micaGap = ref<number>(0);
 
     const calculatedPoints = computed(() => {
         if (!selectedMap.value) return [];
@@ -78,7 +81,7 @@
         for (let index = 0; index < selectedMap.value.points.length; index++) {
             const point = selectedMap.value.points[index];
 
-            const coords = separateChessCoordToXY(point);
+            const coords = normalizeChessCord(separateChessCoordToXY(point)!);
             if (!coords) continue;
 
             points.push({
@@ -101,7 +104,7 @@
             const connection = selectedMap.value.connections[index];
             if (typeof connection[0] === "number") continue;
 
-            const coords1 = separateChessCoordToXY(connection[0]);
+            const coords1 = normalizeChessCord(separateChessCoordToXY(connection[0])!);
             if (!coords1) continue;
 
             let coords2;
@@ -110,7 +113,7 @@
                 const point = connection[index];
                 if (typeof point === "number") continue;
 
-                coords2 = separateChessCoordToXY(point);
+                coords2 = normalizeChessCord(separateChessCoordToXY(point)!);
                 if (!coords2) continue;
 
                 connections.push({
@@ -135,7 +138,7 @@
         for (let index = 0; index < gameState.value.gameState.occupiedPoints.length; index++) {
             const point = gameState.value.gameState.occupiedPoints[index];
 
-            const coords = separateChessCoordToXY(point.point);
+            const coords = normalizeChessCord(separateChessCoordToXY(point.point)!);
             if (!coords) continue;
 
             figures.push({
@@ -150,22 +153,29 @@
         return figures;
     });
 
-    const micaGap = computed(() => {
+    function calculateGap(width?: number, height?: number) {
         if (!micaSize.value || !micaRef.value) return 0;
+        const size = width ? width : getContainerSize();
+        micaGap.value = size / (micaSize.value - 1);
+    }
 
-        return getContainerSize() / (micaSize.value - 1);
-    });
-
-    function separateChessCoordToXY(coord: string) {
+    function separateChessCoordToXY(coord: string): IPoint | null {
         const regArray = coord.match(/([a-zA-Z]+)(\d+)/);
-        if (!regArray) return;
+        if (!regArray) return null;
 
         const [letters, numbers] = regArray.slice(1);
         const letterAsNumber = letters.toLowerCase().charCodeAt(0) - "a".charCodeAt(0);
 
         return {
             x: letterAsNumber,
-            y: 6 - (parseInt(numbers) - 1),
+            y: parseInt(numbers) - 1,
+        };
+    }
+
+    function normalizeChessCord(coord: IPoint): IPoint {
+        return {
+            x: coord.x,
+            y: getMicaSize() - coord.y - 1,
         };
     }
 
@@ -206,6 +216,7 @@
         if (mapsData.value && mapsData.value.length > 0) {
             setSelectedMap(mapsData.value[0].map_data);
             micaSize.value = getMicaSize();
+            calculateGap();
 
             console.log("MICA SIZE", micaSize.value);
         }
@@ -254,8 +265,6 @@
 
                     cursor: pointer;
 
-                    transition: all 0.2s;
-
                     &:hover {
                         background-color: rgb(160, 160, 160);
                     }
@@ -297,3 +306,4 @@
         }
     }
 </style>
+../vueDirectives

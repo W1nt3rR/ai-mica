@@ -3,6 +3,11 @@ import axios from "axios";
 export type TDifficulty = "easy" | "medium" | "hard";
 export type TPlayer = "black" | "white";
 
+export interface IPoint {
+    x: number;
+    y: number;
+}
+
 export interface ICalculateMoveDTO {
     mapName: string;
     difficulty: TDifficulty;
