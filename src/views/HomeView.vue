@@ -62,7 +62,7 @@
 
 <script setup lang="ts">
     import { ref, onMounted, computed } from "vue";
-    import Client, { type ICalculateMoveDTO, type IMapData, type IMapObject, type ITakenPoint, type IPoint } from "@/Client";
+    import Client, { type IGameState, type IMapData, type IMapObject, type ITakenPoint, type IPoint, type TPlayer, type TDifficulty } from "@/Client";
     import { vResize } from "../vueDirectives";
 
     interface ICalculatedFigure {
@@ -72,25 +72,38 @@
         point: ITakenPoint;
     }
 
-    const gameState = ref<ICalculateMoveDTO>({
-        mapName: "map1",
-        difficulty: "easy",
-        depth: 4,
-        gameState: {
-            player: "black",
-            unplacedPieces: {
-                black: 8,
-                white: 8,
-            },
-            occupiedPoints: [
-                { point: "D3", player: "white" }
-            ],
+    interface ICalculatedPoint {
+        x: number;
+        y: number;
+    }
+
+    interface ICalculatedConnection {
+        x1: number;
+        y1: number;
+        x2: number;
+        y2: number;
+    }
+
+    interface IPlayerData {
+        name: string;
+        color: TPlayer;
+        difficulty: TDifficulty;
+        depth: number;
+    }
+
+    const gameState = ref<IGameState>({
+        player: "black",
+        unplacedPieces: {
+            black: 8,
+            white: 8,
         },
+        occupiedPoints: [{ point: "D3", player: "white" }],
     });
+
     const loading = ref<boolean>(false);
 
     const mapsData = ref<Array<IMapObject> | null>(null);
-    const selectedMap = ref<IMapData | null>(null);
+    const selectedMap = ref<IMapObject | null>(null);
     const micaSize = ref<number | null>(null);
 
     const micaRef = ref<HTMLElement | null>(null);
@@ -98,13 +111,27 @@
 
     const selectedFigure = ref<ITakenPoint | null>(null);
 
-    const calculatedPoints = computed(() => {
+    const whitePlayer = ref<IPlayerData>({
+        name: "Player 1",
+        color: "white",
+        difficulty: "medium",
+        depth: 4,
+    });
+
+    const blackPlayer = ref<IPlayerData>({
+        name: "Player 2",
+        color: "black",
+        difficulty: "easy",
+        depth: 3,
+    });
+
+    const calculatedPoints = computed<Array<ICalculatedPoint>>(() => {
         if (!selectedMap.value) return [];
 
         const points = [];
 
-        for (let index = 0; index < selectedMap.value.points.length; index++) {
-            const point = selectedMap.value.points[index];
+        for (let index = 0; index < selectedMap.value.map_data.points.length; index++) {
+            const point = selectedMap.value.map_data.points[index];
 
             const coords = normalizeChessCord(separateChessCoordToXY(point)!);
             if (!coords) continue;
@@ -115,18 +142,16 @@
             });
         }
 
-        console.log("POINTS", points);
-
         return points;
     });
 
-    const calculatedConnections = computed(() => {
+    const calculatedConnections = computed<Array<ICalculatedConnection>>(() => {
         if (!selectedMap.value) return [];
 
         const connections = [];
 
-        for (let index = 0; index < selectedMap.value.connections.length; index++) {
-            const connection = selectedMap.value.connections[index];
+        for (let index = 0; index < selectedMap.value.map_data.connections.length; index++) {
+            const connection = selectedMap.value.map_data.connections[index];
             if (typeof connection[0] === "number") continue;
 
             const coords1 = normalizeChessCord(separateChessCoordToXY(connection[0])!);
@@ -150,18 +175,16 @@
             }
         }
 
-        console.log("CONNECTIONS", connections);
-
         return connections;
     });
 
     const calculatedFigures = computed<Array<ICalculatedFigure>>(() => {
-        if (!gameState.value.gameState) return [];
+        if (!gameState.value) return [];
 
         const figures = [];
 
-        for (let index = 0; index < gameState.value.gameState.occupiedPoints.length; index++) {
-            const point = gameState.value.gameState.occupiedPoints[index];
+        for (let index = 0; index < gameState.value.occupiedPoints.length; index++) {
+            const point = gameState.value.occupiedPoints[index];
 
             const coords = normalizeChessCord(separateChessCoordToXY(point.point)!);
             if (!coords) continue;
@@ -212,8 +235,8 @@
 
         let max = 0;
 
-        for (let index = 0; index < selectedMap.value.points.length; index++) {
-            const point = selectedMap.value.points[index];
+        for (let index = 0; index < selectedMap.value.map_data.points.length; index++) {
+            const point = selectedMap.value.map_data.points[index];
 
             const coords = separateChessCoordToXY(point);
             if (!coords) continue;
@@ -231,21 +254,39 @@
     }
 
     async function makeMove() {
-        gameState.value.gameState = await Client.calculateMove(gameState.value);
+        if (!selectedMap.value) return;
+
+        loading.value = true;
+
+        const difficulty = gameState.value.player === "white" ? whitePlayer.value.difficulty : blackPlayer.value.difficulty;
+        const depth = gameState.value.player === "white" ? whitePlayer.value.depth : blackPlayer.value.depth;
+
+        try {
+            gameState.value = await Client.calculateMove({
+                mapName: selectedMap.value.map_name,
+                difficulty: difficulty,
+                depth: depth,
+                gameState: gameState.value,
+            });
+        } catch (error) {
+            console.error("Calculate move error: ", error);
+        }
+
+        loading.value = false;
     }
 
-    function setSelectedMap(map: IMapData) {
+    function setSelectedMap(map: IMapObject) {
         selectedMap.value = map;
+
+        micaSize.value = getMicaSize();
+        calculateGap();
     }
 
     onMounted(async () => {
         mapsData.value = await Client.maps();
 
         if (mapsData.value && mapsData.value.length > 0) {
-            setSelectedMap(mapsData.value[0].map_data);
-            micaSize.value = getMicaSize();
-            calculateGap();
-
+            setSelectedMap(mapsData.value[0]);
             console.log("MICA SIZE", micaSize.value);
         }
 
