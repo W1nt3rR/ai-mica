@@ -6,13 +6,18 @@ export type TPlayer = "black" | "white";
 export interface ICalculateMoveDTO {
     mapName: string;
     difficulty: TDifficulty;
+    depth: number;
     gameState: IGameState;
+}
+
+export interface IUnplacedPieces {
+    black: number;
+    white: number;
 }
 
 export interface IGameState {
     occupiedPoints: Array<ITakenPoint>;
-    unplacedPiecesBlack: number;
-    unplacedPiecesWhite: number;
+    unplacedPieces: IUnplacedPieces
     player: TPlayer;
 }
 

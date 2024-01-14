@@ -50,12 +50,17 @@
 
     const gameState = ref<ICalculateMoveDTO>({
         mapName: "map1",
-        difficulty: "medium",
+        difficulty: "easy",
+        depth: 4,
         gameState: {
             player: "black",
-            unplacedPiecesBlack: 8,
-            unplacedPiecesWhite: 8,
-            occupiedPoints: [{ point: "D3", player: "white" }],
+            unplacedPieces: {
+                black: 8,
+                white: 8,
+            },
+            occupiedPoints: [
+                { point: "D3", player: "white" }
+            ],
         },
     });
 
