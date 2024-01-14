@@ -20,10 +20,14 @@
                     class="point"
                     v-for="point in calculatedPoints"
                     :key="`point-${point.x}-${point.y}`"
+                    :class="{
+                        nearby: nearbyFreePoints.includes(point.point),
+                    }"
                     :style="{
                         left: point.x * micaGap + 'px',
                         top: point.y * micaGap + 'px',
                     }"
+                    @click="moveStoneHere(point.point)"
                 ></div>
 
                 <div
@@ -51,7 +55,8 @@
                         top: figure.y * micaGap + 'px',
                     }"
                     :key="`figure-${figure.x}-${figure.y}`"
-                    @click="selectFigure(figure.point)"
+                    v-click-outside="() => selectFigure(null)"
+                    @click.stop="selectFigure(figure.point)"
                 ></div>
             </div>
         </div>
@@ -63,7 +68,7 @@
 <script setup lang="ts">
     import { ref, onMounted, computed } from "vue";
     import Client, { type IGameState, type IMapData, type IMapObject, type ITakenPoint, type IPoint, type TPlayer, type TDifficulty } from "@/Client";
-    import { vResize } from "../vueDirectives";
+    import { vResize, vClickOutside } from "../vueDirectives";
 
     interface ICalculatedFigure {
         x: number;
@@ -73,6 +78,7 @@
     }
 
     interface ICalculatedPoint {
+        point: string;
         x: number;
         y: number;
     }
@@ -112,6 +118,26 @@
 
     const selectedFigure = ref<ITakenPoint | null>(null);
 
+    const nearbyFreePoints = computed(() => {
+        if (selectedFigure.value === null) return [];
+        if (!selectedMap.value) return [];
+
+        const points: Array<String> = [];
+
+        for (let index = 0; index < selectedMap.value.map_data.connections.length; index++) {
+            const connection = selectedMap.value.map_data.connections[index];
+
+            if (connection[0] === selectedFigure.value.point) {
+                for (let index = 1; index < connection.length; index++) {
+                    const point = connection[index];
+                    points.push(point);
+                }
+            }
+        }
+
+        return points;
+    });
+
     const whitePlayer = ref<IPlayerData>({
         name: "Player 1",
         color: "white",
@@ -140,6 +166,7 @@
             if (!coords) continue;
 
             points.push({
+                point: point,
                 x: coords.x,
                 y: coords.y,
             });
@@ -203,7 +230,21 @@
         return figures;
     });
 
-    function selectFigure(figure: ITakenPoint) {
+    function moveStoneHere(point: String) {
+        if (!selectedFigure.value) return;
+        if (!nearbyFreePoints.value.includes(point)) return;
+
+        gameState.value.occupiedPoints = gameState.value.occupiedPoints.filter((occupied_point) => {
+            return occupied_point.point !== selectedFigure.value!.point;
+        });
+
+        gameState.value.occupiedPoints.push({
+            point: point,
+            player: selectedFigure.value.player,
+        });
+    }
+
+    function selectFigure(figure: ITakenPoint | null) {
         selectedFigure.value = figure;
     }
 
@@ -213,7 +254,7 @@
         micaGap.value = size / (micaSize.value - 1);
     }
 
-    function separateChessCoordToXY(coord: string): IPoint | null {
+    function separateChessCoordToXY(coord: String): IPoint | null {
         const regArray = coord.match(/([a-zA-Z]+)(\d+)/);
         if (!regArray) return null;
 
@@ -338,6 +379,10 @@
                     z-index: 10;
 
                     cursor: pointer;
+
+                    &.nearby {
+                        background-color: rgb(169, 0, 169);
+                    }
 
                     &:hover {
                         background-color: rgb(96, 96, 96);
