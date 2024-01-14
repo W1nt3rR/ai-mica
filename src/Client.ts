@@ -10,6 +10,7 @@ export interface IPoint {
 
 export interface ICalculateMoveDTO {
     mapName: string;
+    timeout?: number;
     difficulty: TDifficulty;
     depth: number;
     gameState: IGameState;

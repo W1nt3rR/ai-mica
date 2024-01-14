@@ -87,6 +87,7 @@
     interface IPlayerData {
         name: string;
         color: TPlayer;
+        timeout?: number;
         difficulty: TDifficulty;
         depth: number;
     }
@@ -114,6 +115,7 @@
     const whitePlayer = ref<IPlayerData>({
         name: "Player 1",
         color: "white",
+        timeout: 30,
         difficulty: "medium",
         depth: 4,
     });
@@ -121,6 +123,7 @@
     const blackPlayer = ref<IPlayerData>({
         name: "Player 2",
         color: "black",
+        timeout: 30,
         difficulty: "easy",
         depth: 3,
     });
@@ -260,10 +263,12 @@
 
         const difficulty = gameState.value.player === "white" ? whitePlayer.value.difficulty : blackPlayer.value.difficulty;
         const depth = gameState.value.player === "white" ? whitePlayer.value.depth : blackPlayer.value.depth;
+        const timeout = gameState.value.player === "white" ? whitePlayer.value.timeout : blackPlayer.value.timeout;
 
         try {
             gameState.value = await Client.calculateMove({
                 mapName: selectedMap.value.map_name,
+                timeout: timeout,
                 difficulty: difficulty,
                 depth: depth,
                 gameState: gameState.value,
