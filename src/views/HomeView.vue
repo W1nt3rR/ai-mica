@@ -255,7 +255,7 @@
             padding: 40px;
             aspect-ratio: 1;
 
-            background-color: antiquewhite;
+            background-color: rgb(225, 196, 144);
 
             .mica {
                 width: 100%;
@@ -267,7 +267,7 @@
                     width: 16px;
                     height: 16px;
 
-                    background-color: rgb(128, 128, 128);
+                    background-color: rgb(69, 69, 69);
                     border-radius: 50%;
 
                     translate: -50% -50%;
@@ -277,11 +277,11 @@
                     cursor: pointer;
 
                     &:hover {
-                        background-color: rgb(160, 160, 160);
+                        background-color: rgb(96, 96, 96);
                     }
 
                     &:active {
-                        background-color: rgb(69, 69, 69);
+                        background-color: rgb(48, 48, 48);
                     }
                 }
 
@@ -297,6 +297,18 @@
                     translate: -50% -50%;
 
                     z-index: 20;
+
+                    .selected {
+                        border: 2px solid red;
+                    }
+
+                    .black {
+                        background-color: black;
+                    }
+
+                    .white {
+                        background-color: white;
+                    }
 
                     &:hover {
                         transform: brightness(1.2);
