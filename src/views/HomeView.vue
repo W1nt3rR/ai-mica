@@ -39,14 +39,19 @@
                 ></div>
 
                 <div
-                    class="figure"
                     v-for="figure in calculatedFigures"
-                    :key="`figure-${figure.x}-${figure.y}`"
+                    class="figure"
+                    :class="{
+                        selected: figure.point === selectedFigure,
+                        black: figure.color === 'black',
+                        white: figure.color === 'white',
+                    }"
                     :style="{
                         left: figure.x * micaGap + 'px',
                         top: figure.y * micaGap + 'px',
-                        backgroundColor: figure.color,
                     }"
+                    :key="`figure-${figure.x}-${figure.y}`"
+                    @click="selectFigure(figure.point)"
                 ></div>
             </div>
         </div>
@@ -58,7 +63,14 @@
 <script setup lang="ts">
     import { ref, onMounted, computed } from "vue";
     import Client, { type ICalculateMoveDTO, type IMapData, type IMapObject, type ITakenPoint, type IPoint } from "@/Client";
-    import { vResize } from "../vueDirectives"
+    import { vResize } from "../vueDirectives";
+
+    interface ICalculatedFigure {
+        x: number;
+        y: number;
+        color: "black" | "white";
+        point: ITakenPoint;
+    }
 
     const gameState = ref<ICalculateMoveDTO>({
         mapName: "map1",
@@ -83,6 +95,8 @@
 
     const micaRef = ref<HTMLElement | null>(null);
     const micaGap = ref<number>(0);
+
+    const selectedFigure = ref<ITakenPoint | null>(null);
 
     const calculatedPoints = computed(() => {
         if (!selectedMap.value) return [];
@@ -141,7 +155,7 @@
         return connections;
     });
 
-    const calculatedFigures = computed(() => {
+    const calculatedFigures = computed<Array<ICalculatedFigure>>(() => {
         if (!gameState.value.gameState) return [];
 
         const figures = [];
@@ -156,13 +170,16 @@
                 x: coords.x,
                 y: coords.y,
                 color: point.player,
+                point: point,
             });
         }
 
-        console.log("FIGURES", figures);
-
         return figures;
     });
+
+    function selectFigure(figure: ITakenPoint) {
+        selectedFigure.value = figure;
+    }
 
     function calculateGap(width?: number, height?: number) {
         if (!micaSize.value || !micaRef.value) return 0;
@@ -298,15 +315,17 @@
 
                     z-index: 20;
 
-                    .selected {
-                        border: 2px solid red;
+                    cursor: pointer;
+
+                    &.selected {
+                        border: 3px solid rgb(196, 69, 225);
                     }
 
-                    .black {
+                    &.black {
                         background-color: black;
                     }
 
-                    .white {
+                    &.white {
                         background-color: white;
                     }
 
