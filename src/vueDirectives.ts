@@ -4,6 +4,10 @@ interface IResizeElement extends HTMLElement {
     _handleResize: () => void;
 }
 
+interface IClickOutsideElement extends HTMLElement {
+    clickOutsideEvent: (event: any) => void;
+}
+
 const vResize = {
     beforeMount(el: IResizeElement, binding: any) {
         const width = ref(el.clientWidth);
@@ -29,6 +33,21 @@ const vResize = {
     },
 };
 
-export {
-    vResize,
+const vClickOutside = {
+    beforeMount(el: IClickOutsideElement, binding: any) {
+        el.clickOutsideEvent = (event: any) => {
+            if (!(el === event.target || el.contains(event.target))) {
+                if (typeof binding.value === "function") {
+                    binding.value(event, el);
+                }
+            }
+        };
+
+        document.body.addEventListener("click", el.clickOutsideEvent);
+    },
+    unmounted(el: any) {
+        document.body.removeEventListener("click", el.clickOutsideEvent);
+    },
 };
+
+export { vResize, vClickOutside };
