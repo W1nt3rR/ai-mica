@@ -28,7 +28,7 @@ export interface IGameState {
 }
 
 export interface ITakenPoint {
-    point: string;
+    point: String;
     player: TPlayer;
 }
 
@@ -39,8 +39,8 @@ export interface IMapObject {
 
 export interface IMapData {
     points: Array<string>;
-    connections: Array<Array<string | number>>;
-    mills: Array<Array<string | number>>;
+    connections: Array<Array<string>>;
+    mills: Array<Array<string>>;
 }
 
 export default class Client {
