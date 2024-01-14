@@ -18,6 +18,8 @@ const vResize = {
             }
         };
 
+        handleResize();
+
         window.addEventListener("resize", handleResize);
 
         el._handleResize = handleResize;
