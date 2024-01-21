@@ -1016,6 +1016,29 @@
 
     // Responsive CSS
     @media (max-aspect-ratio: 1/1) {
+        #home {
+            flex-direction: column;
+            padding: 20px;
+
+            .info {
+                width: 100%;
+                height: auto;
+
+                padding: 20px;
+
+                flex-direction: row;
+
+                .unplaced-stones {
+                    flex-direction: row;
+                    gap: 20px;
+                }
+
+                .lastEval {
+                    flex-direction: row;
+                }
+            }
+        }
+
         .mica-container {
             width: 100%;
             aspect-ratio: 1;
