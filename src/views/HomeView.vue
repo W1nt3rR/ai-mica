@@ -1,12 +1,65 @@
 <template>
     <div
         class="full-screen-overlay"
-        v-if="loading"
+        v-if="showOverlay"
     >
         <span
             v-if="loading"
             class="loader"
         ></span>
+
+        <div
+            class="game-type-chooser"
+            v-if="!gameType"
+        >
+            <div class="game-type-cards">
+                <div
+                    v-for="game in EGameType"
+                    class="game-card"
+                    :key="game"
+                    @click="handleGameCardClick(game)"
+                >
+                    {{ game }}
+                </div>
+            </div>
+        </div>
+
+        <div
+            v-else-if="showDifficutlyChooser"
+            class="difficulty-chooser"
+        >
+            <div class="player-difficulty">
+                {{ showWhiteDifficultyChooser ? "White player" : "Black player" }}
+            </div>
+
+            <div
+                class="difficulty-cards"
+                v-if="showWhiteDifficultyChooser"
+            >
+                <div
+                    v-for="diff in EDifficulty"
+                    :key="diff"
+                    class="difficulty-card"
+                    @click="handleDifficultyClick('white', diff)"
+                >
+                    {{ diff }}
+                </div>
+            </div>
+
+            <div
+                class="difficulty-cards"
+                v-if="!showWhiteDifficultyChooser && showBlackDifficultyChooser"
+            >
+                <div
+                    v-for="diff in EDifficulty"
+                    :key="diff"
+                    class="difficulty-card"
+                    @click="handleDifficultyClick('black', diff)"
+                >
+                    {{ diff }}
+                </div>
+            </div>
+        </div>
     </div>
 
     <div id="home">
@@ -27,8 +80,10 @@
                         left: point.x * micaGap + 'px',
                         top: point.y * micaGap + 'px',
                     }"
-                    @click="moveStoneHere(point.point)"
-                ></div>
+                    @click="handlePointClick(point.point)"
+                >
+                    <div class="point-inner"></div>
+                </div>
 
                 <div
                     class="connection"
@@ -49,6 +104,8 @@
                         selected: figure.point === selectedFigure,
                         black: figure.color === 'black',
                         white: figure.color === 'white',
+                        canRemove: canRemoveOpponentsPiece && opponentsStones.includes(figure.point),
+                        isInFormedMill: formedMillStones.includes(figure.point) && !(canRemoveOpponentsPiece && opponentsStones.includes(figure.point)),
                     }"
                     :style="{
                         left: figure.x * micaGap + 'px',
@@ -60,15 +117,14 @@
                 ></div>
             </div>
         </div>
-
-        <button @click="makeMove">Make move</button>
     </div>
 </template>
 
 <script setup lang="ts">
-    import { ref, onMounted, computed } from "vue";
-    import Client, { type IGameState, type IMapData, type IMapObject, type ITakenPoint, type IPoint, type TPlayer, type TDifficulty } from "@/Client";
+    import { ref, onMounted, computed, watch } from "vue";
+    import Client, { EDifficulty, type IGameState, type IMapObject, type ITakenPoint, type IPoint, type TPlayer } from "@/Client";
     import { vResize, vClickOutside } from "../vueDirectives";
+    import axios, { type CancelTokenSource } from "axios";
 
     interface ICalculatedFigure {
         x: number;
@@ -94,18 +150,26 @@
         name: string;
         color: TPlayer;
         timeout?: number;
-        difficulty: TDifficulty;
+        difficulty: EDifficulty | null;
         depth: number;
     }
 
+    enum EGameType {
+        PlayerVsPlayer = "Player vs Player",
+        PlayerVsComputer = "Player vs Computer",
+        ComputerVsComputer = "Computer vs Computer",
+    }
+
     const gameState = ref<IGameState>({
-        player: "black",
+        player: "white",
         unplacedPieces: {
-            black: 8,
-            white: 8,
+            black: 9,
+            white: 9,
         },
-        occupiedPoints: [{ point: "D3", player: "white" }],
+        occupiedPoints: [],
     });
+
+    const gameType = ref<EGameType | null>(null);
 
     const loading = ref<boolean>(false);
 
@@ -118,19 +182,112 @@
 
     const selectedFigure = ref<ITakenPoint | null>(null);
 
+    const canRemoveOpponentsPiece = ref<boolean>(false);
+
+    const axiosCancelToken = ref<CancelTokenSource>(axios.CancelToken.source());
+
+    const whitePlayer = ref<IPlayerData>({
+        name: "White player",
+        color: "white",
+        timeout: 30,
+        difficulty: null,
+        depth: 4,
+    });
+
+    const blackPlayer = ref<IPlayerData>({
+        name: "Black player",
+        color: "black",
+        timeout: 30,
+        difficulty: null,
+        depth: 4,
+    });
+
+    const showOverlay = computed(() => {
+        if (!gameType.value) return true;
+
+        switch (gameType.value) {
+            case EGameType.PlayerVsPlayer:
+                if (loading.value) return true;
+                break;
+            case EGameType.PlayerVsComputer:
+                if (loading.value) return true;
+                if (showBlackDifficultyChooser.value) return true;
+                break;
+            case EGameType.ComputerVsComputer:
+                if (showBlackDifficultyChooser.value || showWhiteDifficultyChooser.value) return true;
+                break;
+        }
+
+        return false;
+    });
+
+    const showDifficutlyChooser = computed(() => {
+        if (gameType.value === EGameType.PlayerVsPlayer) return false;
+        if (!showBlackDifficultyChooser.value && !showWhiteDifficultyChooser.value) return false;
+        return true;
+    });
+
+    const showBlackDifficultyChooser = computed(() => {
+        if (gameType.value === EGameType.PlayerVsPlayer) return false;
+        return blackPlayer.value.difficulty === null;
+    });
+
+    const showWhiteDifficultyChooser = computed(() => {
+        if (gameType.value === EGameType.PlayerVsPlayer || gameType.value === EGameType.PlayerVsComputer) return false;
+        return whitePlayer.value.difficulty === null;
+    });
+
+    const opponentsStones = computed(() => {
+        if (!gameState.value) return [];
+
+        const stones = gameState.value.occupiedPoints.filter((point) => {
+            // if not opponent player - skip
+            if (point.player === gameState.value.player) return false;
+
+            // if part of mill - skip
+            if (isInFormedMill(point)) {
+                return false;
+            }
+
+            return true;
+        });
+
+        // If no stones - return all opponent stones
+        if (stones.length === 0) {
+            return gameState.value.occupiedPoints.filter((point) => point.player !== gameState.value.player);
+        }
+
+        return stones;
+    });
+
+    const formedMillStones = computed(() => {
+        return gameState.value.occupiedPoints.filter((point) => isInFormedMill(point));
+    });
+
     const nearbyFreePoints = computed(() => {
         if (selectedFigure.value === null) return [];
         if (!selectedMap.value) return [];
 
         const points: Array<String> = [];
 
-        for (let index = 0; index < selectedMap.value.map_data.connections.length; index++) {
-            const connection = selectedMap.value.map_data.connections[index];
-
-            if (connection[0] === selectedFigure.value.point) {
-                for (let index = 1; index < connection.length; index++) {
-                    const point = connection[index];
+        if (countPieces(gameState.value.player) === 3) {
+            for (const point of selectedMap.value.map_data.points) {
+                if (!gameState.value.occupiedPoints.find((occupied_point) => occupied_point.point === point)) {
                     points.push(point);
+                }
+            }
+        } else {
+            for (let index = 0; index < selectedMap.value.map_data.connections.length; index++) {
+                const connection = selectedMap.value.map_data.connections[index];
+
+                if (connection[0] === selectedFigure.value.point) {
+                    for (let index = 1; index < connection.length; index++) {
+                        // If point is occupied by other player figure - skip
+                        if (gameState.value.occupiedPoints.find((occupied_point) => occupied_point.point === connection[index])) continue;
+
+                        const point = connection[index];
+                        points.push(point);
+                    }
                 }
             }
         }
@@ -138,20 +295,24 @@
         return points;
     });
 
-    const whitePlayer = ref<IPlayerData>({
-        name: "Player 1",
-        color: "white",
-        timeout: 30,
-        difficulty: "medium",
-        depth: 4,
-    });
+    const mills = computed(() => {
+        const mills = new Map<String, Array<Array<String>>>();
 
-    const blackPlayer = ref<IPlayerData>({
-        name: "Player 2",
-        color: "black",
-        timeout: 30,
-        difficulty: "easy",
-        depth: 3,
+        if (!selectedMap.value) return mills;
+
+        for (const point of selectedMap.value.map_data.points) {
+            mills.set(point, []);
+        }
+        for (const mill of selectedMap.value.map_data["mills"]) {
+            if (mill.length === 3) {
+                // A mill is formed by 3 points
+                for (const point of mill) {
+                    mills.get(point)?.push(mill);
+                }
+            }
+        }
+
+        return mills;
     });
 
     const calculatedPoints = computed<Array<ICalculatedPoint>>(() => {
@@ -230,22 +391,90 @@
         return figures;
     });
 
-    function moveStoneHere(point: String) {
-        if (!selectedFigure.value) return;
-        if (!nearbyFreePoints.value.includes(point)) return;
+    function handlePointClick(point: String) {
+        if (canRemoveOpponentsPiece.value) return;
 
-        gameState.value.occupiedPoints = gameState.value.occupiedPoints.filter((occupied_point) => {
-            return occupied_point.point !== selectedFigure.value!.point;
-        });
+        // If can place figure - place it
+        if (gameType.value !== EGameType.ComputerVsComputer && gameState.value.unplacedPieces[gameState.value.player] > 0) {
+            gameState.value.unplacedPieces[gameState.value.player]--;
+            placeFigure(point);
+        } else {
+            if (!selectedFigure.value) return;
+            if (!nearbyFreePoints.value.includes(point)) return;
+            selectedFigure.value.point = point;
+        }
 
+        selectedFigure.value = null;
+
+        if (isInFormedMill({ point: point, player: gameState.value.player })) {
+            canRemoveOpponentsPiece.value = true;
+        } else {
+            canRemoveOpponentsPiece.value = false;
+            setOpponentPlayer();
+        }
+    }
+
+    function setOpponentPlayer() {
+        if (gameState.value.player === "white") {
+            gameState.value.player = "black";
+        } else {
+            gameState.value.player = "white";
+        }
+    }
+
+    function placeFigure(point: String) {
         gameState.value.occupiedPoints.push({
             point: point,
-            player: selectedFigure.value.player,
+            player: gameState.value.player,
         });
     }
 
+    function isInFormedMill(point: ITakenPoint) {
+        if (!mills.value) return false;
+
+        const formedMills = mills.value.get(point.point);
+        if (!formedMills) return false;
+
+        for (const mill of formedMills) {
+            let count = 0;
+            for (const millPoint of mill) {
+                if (gameState.value.occupiedPoints.find((occupied_point) => occupied_point.point === millPoint && occupied_point.player === point.player)) {
+                    count++;
+                }
+            }
+            if (count === 3) {
+                console.log("FORMED MILL", mill);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function countPieces(player: TPlayer) {
+        return gameState.value.occupiedPoints.filter((point) => point.player === player).length + gameState.value.unplacedPieces[player];
+    }
+
     function selectFigure(figure: ITakenPoint | null) {
-        selectedFigure.value = figure;
+        if (loading.value) return;
+
+        if (!figure) {
+            selectedFigure.value = null;
+            return;
+        }
+
+        if (canRemoveOpponentsPiece.value && opponentsStones.value.includes(figure)) {
+            canRemoveOpponentsPiece.value = false;
+
+            gameState.value.occupiedPoints = gameState.value.occupiedPoints.filter((occupied_point) => {
+                return occupied_point.point !== figure.point;
+            });
+
+            setOpponentPlayer();
+        } else {
+            if (gameState.value.unplacedPieces[gameState.value.player] > 0) return;
+            if (figure.player !== gameState.value.player) return;
+            selectedFigure.value = figure;
+        }
     }
 
     function calculateGap(width?: number, height?: number) {
@@ -297,6 +526,18 @@
         return micaRef.value.clientWidth;
     }
 
+    function handleDifficultyClick(player: TPlayer, difficulty: EDifficulty) {
+        if (player === "white") {
+            whitePlayer.value.difficulty = difficulty;
+        } else {
+            blackPlayer.value.difficulty = difficulty;
+
+            if (gameType.value === EGameType.ComputerVsComputer) {
+                makeMove();
+            }
+        }
+    }
+
     async function makeMove() {
         if (!selectedMap.value) return;
 
@@ -307,15 +548,24 @@
         const timeout = gameState.value.player === "white" ? whitePlayer.value.timeout : blackPlayer.value.timeout;
 
         try {
-            gameState.value = await Client.calculateMove({
-                mapName: selectedMap.value.map_name,
-                timeout: timeout,
-                difficulty: difficulty,
-                depth: depth,
-                gameState: gameState.value,
-            });
+            gameState.value = await Client.calculateMove(
+                {
+                    mapName: selectedMap.value.map_name,
+                    timeout: timeout,
+                    difficulty: difficulty ?? EDifficulty.Easy,
+                    depth: depth,
+                    gameState: gameState.value,
+                },
+                {
+                    cancelToken: axiosCancelToken.value,
+                }
+            );
         } catch (error) {
-            console.error("Calculate move error: ", error);
+            if (axios.isCancel(error)) {
+                console.log("Request canceled: ", error.message);
+            } else {
+                console.error("Calculate move error: ", error);
+            }
         }
 
         loading.value = false;
@@ -328,96 +578,242 @@
         calculateGap();
     }
 
+    function handleGameCardClick(game: EGameType) {
+        gameType.value = game;
+    }
+
+    function resetGame() {
+        axiosCancelToken.value.cancel("Game reset");
+
+        gameState.value = {
+            player: "white",
+            unplacedPieces: {
+                black: 9,
+                white: 9,
+            },
+            occupiedPoints: [],
+        };
+
+        canRemoveOpponentsPiece.value = false;
+        selectedFigure.value = null;
+        gameType.value = null;
+        loading.value = false;
+        whitePlayer.value.difficulty = null;
+        blackPlayer.value.difficulty = null;
+    }
+
+    function setupKeyboardShortcuts() {
+        window.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+                event.preventDefault();
+                resetGame();
+            }
+        });
+    }
+
+    watch(
+        gameState,
+        async (newValue: IGameState, oldValue: IGameState) => {
+            if (!newValue) return;
+
+            const blackStones = countPieces("black");
+            const whiteStones = countPieces("white");
+
+            // REFACTOR - Make it pretty
+            if (blackStones === 2) {
+                alert("White player won!");
+            } else if (whiteStones === 2) {
+                alert("Black player won!");
+            }
+
+            // Reset game if 2 stones left
+            if (blackStones === 2 || whiteStones === 2) {
+                resetGame();
+                return;
+            }
+
+            if (gameType.value === EGameType.ComputerVsComputer) {
+                makeMove();
+            } else if (gameType.value === EGameType.PlayerVsComputer) {
+                if (newValue.player === "black") {
+                    makeMove();
+                }
+            }
+        },
+        { deep: true }
+    );
+
     onMounted(async () => {
         mapsData.value = await Client.maps();
 
         if (mapsData.value && mapsData.value.length > 0) {
             setSelectedMap(mapsData.value[0]);
-            console.log("MICA SIZE", micaSize.value);
         }
 
-        console.log("MAPS", mapsData.value);
-
-        (window as any).test1 = separateChessCoordToXY;
+        setupKeyboardShortcuts();
     });
 </script>
 
 <style scoped lang="scss">
-    #home {
+    @mixin flex($direction: row, $justify: center, $align: center) {
+        display: flex;
+        flex-direction: $direction;
+        justify-content: $justify;
+        align-items: $align;
+    }
+
+    @mixin full-screen {
+        width: 100vw;
+        height: 100vh;
+    }
+
+    @mixin full {
         width: 100%;
         height: 100%;
+    }
 
-        padding: 40px;
+    @mixin shadow {
+        box-shadow: 0px 0px 10px 0px rgba(0, 0, 0, 0.75);
+    }
+
+    @mixin padding($padding: 40px) {
+        padding: $padding;
+    }
+
+    @mixin backdrop-filter {
+        backdrop-filter: blur(10px);
+    }
+
+    @mixin border-radius($radius: 10px) {
+        border-radius: $radius;
+    }
+
+    @mixin border-rounded {
+        border-radius: 50%;
+    }
+
+    @mixin transition($transition: all) {
+        transition: $transition 100ms ease-in-out;
+    }
+
+    @mixin translateCenter {
+        position: absolute;
+        transform: translate(-50%, -50%);
+    }
+
+    #home {
+        @include flex();
+        @include full();
+        @include padding();
 
         background-color: rgb(69, 69, 69);
 
-        display: flex;
-        justify-content: center;
-
         .mica-container {
-            height: 100%;
-            padding: 40px;
-            aspect-ratio: 1;
+            @include border-radius();
+            @include padding();
 
-            background-color: rgb(225, 196, 144);
+            background-color: rgb(225, 225, 225);
 
             .mica {
-                width: 100%;
-                height: 100%;
+                @include full();
 
                 position: relative;
                 .point {
-                    position: absolute;
-                    width: 16px;
-                    height: 16px;
+                    @include border-radius(50%);
+                    @include transition(background-color);
+                    @include flex();
+                    @include translateCenter();
 
-                    background-color: rgb(69, 69, 69);
-                    border-radius: 50%;
-
-                    translate: -50% -50%;
+                    width: 48px;
+                    height: 48px;
 
                     z-index: 10;
 
                     cursor: pointer;
 
+                    .point-inner {
+                        @include border-rounded();
+                        @include transition();
+
+                        width: 16px;
+                        height: 16px;
+                        background-color: rgb(69, 69, 69);
+                    }
+
                     &.nearby {
-                        background-color: rgb(169, 0, 169);
+                        .point-inner {
+                            transform: scale(1.2);
+                            background-color: rgb(169, 48, 169);
+                        }
+
+                        &:hover {
+                            .point-inner {
+                                background-color: rgb(196, 64, 196);
+                            }
+                        }
+
+                        &:active {
+                            .point-inner {
+                                background-color: rgb(144, 32, 144);
+                            }
+                        }
                     }
 
                     &:hover {
-                        background-color: rgb(96, 96, 96);
+                        .point-inner {
+                            background-color: rgb(96, 96, 96);
+                        }
                     }
 
                     &:active {
-                        background-color: rgb(48, 48, 48);
+                        .point-inner {
+                            background-color: rgb(48, 48, 48);
+                        }
                     }
                 }
 
                 .figure {
+                    @include shadow();
+                    @include backdrop-filter();
+                    @include transition();
+                    @include border-rounded();
+
                     position: absolute;
+                    transform: translate(-50%, -50%);
+
                     width: 48px;
                     height: 48px;
-
-                    border: 2px solid black;
-
-                    border-radius: 50%;
-
-                    translate: -50% -50%;
 
                     z-index: 20;
 
                     cursor: pointer;
 
                     &.selected {
-                        border: 3px solid rgb(196, 69, 225);
+                        transform: translate(-50%, -50%) scale(1.2);
                     }
 
                     &.black {
-                        background-color: black;
+                        background-color: rgba(0, 0, 0, 0.5);
+
+                        &.isInFormedMill {
+                            background-color: rgba(0, 32, 0, 0.5);
+                        }
+
+                        &.canRemove {
+                            background-color: rgba(69, 0, 0, 0.5);
+                        }
                     }
 
                     &.white {
-                        background-color: white;
+                        background-color: rgba(255, 255, 255, 0.5);
+
+                        &.isInFormedMill {
+                            background-color: rgba(222, 256, 222, 0.5);
+                        }
+
+                        &.canRemove {
+                            background-color: rgba(255, 196, 196, 0.5);
+                        }
                     }
 
                     &:hover {
@@ -440,19 +836,91 @@
     }
 
     .full-screen-overlay {
+        @include flex();
+        @include full-screen();
+
         position: fixed;
         top: 0;
         left: 0;
         z-index: 9999;
 
-        width: 100vw;
-        height: 100vh;
+        background-color: rgba(0, 0, 0, 0.25);
+    }
 
-        background-color: rgba(0, 0, 0, 0.3);
+    .game-type-chooser {
+        @include flex();
+        @include full();
 
-        display: flex;
-        justify-content: center;
-        align-items: center;
+        .game-type-cards {
+            @include flex();
+
+            gap: 20px;
+
+            .game-card {
+                @include shadow();
+                @include backdrop-filter();
+                @include border-radius();
+                @include flex();
+                @include transition();
+
+                width: 200px;
+                height: 200px;
+
+                background-color: rgba(255, 255, 255, 0.5);
+
+                cursor: pointer;
+
+                &:hover {
+                    transform: scale(1.05);
+                }
+
+                &:active {
+                    transform: scale(0.95);
+                }
+            }
+        }
+    }
+
+    .difficulty-chooser {
+        @include flex(column);
+        @include full();
+
+        .player-difficulty {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .difficulty-cards {
+            @include flex();
+
+            gap: 20px;
+
+            .difficulty-card {
+                @include shadow();
+                @include backdrop-filter();
+                @include border-radius();
+                @include flex();
+                @include transition();
+
+                width: 200px;
+                height: 200px;
+
+                background-color: rgba(255, 255, 255, 0.5);
+
+                text-transform: capitalize;
+
+                cursor: pointer;
+
+                &:hover {
+                    transform: scale(1.05);
+                }
+
+                &:active {
+                    transform: scale(0.95);
+                }
+            }
+        }
     }
 
     .loader {
@@ -472,6 +940,38 @@
         }
         100% {
             transform: rotate(360deg);
+        }
+    }
+
+    // Responsive CSS
+    @media (max-aspect-ratio: 1/1) {
+        .mica-container {
+            width: 100%;
+            aspect-ratio: 1;
+        }
+    }
+
+    @media (min-aspect-ratio: 1/1) {
+        .mica-container {
+            height: 100%;
+            aspect-ratio: 1;
+        }
+    }
+
+    @media (max-width: 540px) {
+        .figure {
+            width: 32px !important;
+            height: 32px !important;
+        }
+
+        .point {
+            width: 32px !important;
+            height: 32px !important;
+
+            .point-inner {
+                width: 12px !important;
+                height: 12px !important;
+            }
         }
     }
 </style>

@@ -1,6 +1,11 @@
-import axios from "axios";
+import axios, { type CancelTokenSource } from "axios";
 
-export type TDifficulty = "easy" | "medium" | "hard";
+export enum EDifficulty {
+    Easy = "easy",
+    Medium = "medium",
+    Hard = "hard",
+}
+
 export type TPlayer = "black" | "white";
 
 export interface IPoint {
@@ -11,9 +16,13 @@ export interface IPoint {
 export interface ICalculateMoveDTO {
     mapName: string;
     timeout?: number;
-    difficulty: TDifficulty;
+    difficulty: EDifficulty;
     depth: number;
     gameState: IGameState;
+}
+
+export interface IAxtiosOptions {
+    cancelToken: CancelTokenSource;
 }
 
 export interface IUnplacedPieces {
@@ -23,7 +32,7 @@ export interface IUnplacedPieces {
 
 export interface IGameState {
     occupiedPoints: Array<ITakenPoint>;
-    unplacedPieces: IUnplacedPieces
+    unplacedPieces: IUnplacedPieces;
     player: TPlayer;
 }
 
@@ -55,8 +64,11 @@ export default class Client {
     /**
      * Calculates the next move for the AI
      */
-    public static async calculateMove(currentGameState: ICalculateMoveDTO): Promise<IGameState> {
-        const result = await axios.post("/calculatemove/", currentGameState);
+    public static async calculateMove(currentGameState: ICalculateMoveDTO, axiosOptions: IAxtiosOptions): Promise<IGameState> {
+        const result = await axios.post("/calculatemove/", currentGameState, {
+            cancelToken: axiosOptions.cancelToken.token,
+        });
+
         return result.data;
     }
 }
