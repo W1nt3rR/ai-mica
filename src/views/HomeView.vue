@@ -460,7 +460,6 @@
                 }
             }
             if (count === 3) {
-                console.log("FORMED MILL", mill);
                 return true;
             }
         }
