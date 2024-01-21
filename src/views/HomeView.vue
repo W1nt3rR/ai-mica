@@ -184,6 +184,8 @@
 
     const canRemoveOpponentsPiece = ref<boolean>(false);
 
+    const lastEval = ref<number | null>(null);
+
     const whitePlayer = ref<IPlayerData>({
         name: "White player",
         color: "white",
@@ -559,7 +561,7 @@
         const timeout = gameState.value.player === "white" ? whitePlayer.value.timeout : blackPlayer.value.timeout;
 
         try {
-            gameState.value = await Client.calculateMove(
+            const data = await Client.calculateMove(
                 {
                     mapName: selectedMap.value.map_name,
                     timeout: timeout,
@@ -568,6 +570,9 @@
                     gameState: gameState.value,
                 }
             );
+
+            gameState.value = data.gameState;
+            lastEval.value = data.eval;
         } catch (error) {
             if (axios.isCancel(error)) {
                 console.log("Request canceled: ", error.message);

@@ -21,6 +21,11 @@ export interface ICalculateMoveDTO {
     gameState: IGameState;
 }
 
+export interface ICalculateMoveResponse {
+    gameState: IGameState;
+    eval: number;
+}
+
 export interface IAxtiosOptions {
     cancelToken: CancelTokenSource;
 }
@@ -66,7 +71,7 @@ export default class Client {
     /**
      * Calculates the next move for the AI
      */
-    public static async calculateMove(currentGameState: ICalculateMoveDTO): Promise<IGameState> {
+    public static async calculateMove(currentGameState: ICalculateMoveDTO): Promise<ICalculateMoveResponse> {
         const result = await axios.post("/calculatemove/", currentGameState, {
             cancelToken: Client.axiosCancelToken.token,
         });
