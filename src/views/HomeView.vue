@@ -63,6 +63,23 @@
     </div>
 
     <div id="home">
+        <div class="info">
+            <div class="unplaced-stones">
+                <div class="figure black">
+                    <p>{{ gameState.unplacedPieces.black }}</p>
+                </div>
+                <div class="figure white">
+                    <p>{{ gameState.unplacedPieces.white }}</p>
+                </div>
+            </div>
+            <div
+                class="lastEval"
+                v-if="lastEval != null"
+            >
+                <p>Last eval:</p>
+                <p>{{ lastEval }}</p>
+            </div>
+        </div>
         <div class="mica-container">
             <div
                 class="mica"
@@ -99,7 +116,7 @@
 
                 <div
                     v-for="figure in calculatedFigures"
-                    class="figure"
+                    class="figure absolutely-positioned"
                     :class="{
                         selected: figure.point === selectedFigure,
                         black: figure.color === 'black',
@@ -561,15 +578,13 @@
         const timeout = gameState.value.player === "white" ? whitePlayer.value.timeout : blackPlayer.value.timeout;
 
         try {
-            const data = await Client.calculateMove(
-                {
-                    mapName: selectedMap.value.map_name,
-                    timeout: timeout,
-                    difficulty: difficulty ?? EDifficulty.Easy,
-                    depth: depth,
-                    gameState: gameState.value,
-                }
-            );
+            const data = await Client.calculateMove({
+                mapName: selectedMap.value.map_name,
+                timeout: timeout,
+                difficulty: difficulty ?? EDifficulty.Easy,
+                depth: depth,
+                gameState: gameState.value,
+            });
 
             gameState.value = data.gameState;
             lastEval.value = data.eval;
@@ -719,7 +734,47 @@
         @include full();
         @include padding();
 
+        gap: 40px;
         background-color: rgb(69, 69, 69);
+
+        .info {
+            @include flex(column, flex-start);
+            @include border-radius();
+            @include padding();
+
+            height: 100%;
+            gap: 40px;
+            background-color: rgb(225, 225, 225);
+
+            .unplaced-stones {
+                @include flex(column);
+                gap: 20px;
+
+                .figure {
+                    @include flex();
+
+                    &.black {
+                        color: white;
+                    }
+
+                    p {
+                        font-size: 24px;
+                        font-weight: bold;
+                    }
+                }
+            }
+
+            .lastEval {
+                @include flex(column);
+
+                p {
+                    font-size: 20px;
+                    font-weight: bold;
+                    padding: 0;
+                    margin: 0;
+                }
+            }
+        }
 
         .mica-container {
             @include border-radius();
@@ -785,65 +840,68 @@
                     }
                 }
 
-                .figure {
-                    @include shadow();
-                    @include backdrop-filter();
-                    @include transition();
-                    @include border-rounded();
-
-                    position: absolute;
-                    transform: translate(-50%, -50%);
-
-                    width: 48px;
-                    height: 48px;
-
-                    z-index: 20;
-
-                    cursor: pointer;
-
-                    &.selected {
-                        transform: translate(-50%, -50%) scale(1.2);
-                    }
-
-                    &.black {
-                        background-color: rgba(0, 0, 0, 0.5);
-
-                        &.isInFormedMill {
-                            background-color: rgba(0, 32, 0, 0.5);
-                        }
-
-                        &.canRemove {
-                            background-color: rgba(69, 0, 0, 0.5);
-                        }
-                    }
-
-                    &.white {
-                        background-color: rgba(255, 255, 255, 0.5);
-
-                        &.isInFormedMill {
-                            background-color: rgba(222, 256, 222, 0.5);
-                        }
-
-                        &.canRemove {
-                            background-color: rgba(255, 196, 196, 0.5);
-                        }
-                    }
-
-                    &:hover {
-                        transform: brightness(1.2);
-                    }
-
-                    &:active {
-                        transform: brightness(0.8);
-                    }
-                }
-
                 .connection {
                     position: absolute;
                     border: 2px solid gray;
 
                     translate: -2px -2px;
                 }
+            }
+        }
+
+        .figure {
+            @include shadow();
+            @include backdrop-filter();
+            @include transition();
+            @include border-rounded();
+
+            width: 48px;
+            height: 48px;
+
+            z-index: 20;
+
+            cursor: pointer;
+
+            &.absolutely-positioned {
+                position: absolute;
+                position: absolute;
+                transform: translate(-50%, -50%);
+            }
+
+            &.selected {
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+
+            &.black {
+                background-color: rgba(0, 0, 0, 0.5);
+
+                &.isInFormedMill {
+                    background-color: rgba(0, 32, 0, 0.5);
+                }
+
+                &.canRemove {
+                    background-color: rgba(69, 0, 0, 0.5);
+                }
+            }
+
+            &.white {
+                background-color: rgba(255, 255, 255, 0.5);
+
+                &.isInFormedMill {
+                    background-color: rgba(222, 256, 222, 0.5);
+                }
+
+                &.canRemove {
+                    background-color: rgba(255, 196, 196, 0.5);
+                }
+            }
+
+            &:hover {
+                transform: brightness(1.2);
+            }
+
+            &:active {
+                transform: brightness(0.8);
             }
         }
     }
