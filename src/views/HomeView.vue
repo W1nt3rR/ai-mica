@@ -189,7 +189,7 @@
         color: "white",
         timeout: 30,
         difficulty: null,
-        depth: 4,
+        depth: 5,
     });
 
     const blackPlayer = ref<IPlayerData>({
@@ -197,7 +197,7 @@
         color: "black",
         timeout: 30,
         difficulty: null,
-        depth: 4,
+        depth: 5,
     });
 
     const showOverlay = computed(() => {
@@ -536,13 +536,26 @@
         }
     }
 
+    function difficultyToDepth(difficulty: EDifficulty) {
+        switch (difficulty) {
+            case EDifficulty.Easy:
+                return 3;
+            case EDifficulty.Medium:
+                return 5;
+            case EDifficulty.Hard:
+                return 7;
+            default:
+                return 3;
+        }
+    }
+
     async function makeMove() {
         if (!selectedMap.value) return;
 
         loading.value = true;
 
         const difficulty = gameState.value.player === "white" ? whitePlayer.value.difficulty : blackPlayer.value.difficulty;
-        const depth = gameState.value.player === "white" ? whitePlayer.value.depth : blackPlayer.value.depth;
+        const depth = difficultyToDepth(gameState.value.player === "white" ? whitePlayer.value.difficulty! : blackPlayer.value.difficulty!);
         const timeout = gameState.value.player === "white" ? whitePlayer.value.timeout : blackPlayer.value.timeout;
 
         try {
