@@ -124,7 +124,7 @@
     import { ref, onMounted, computed, watch } from "vue";
     import Client, { EDifficulty, type IGameState, type IMapObject, type ITakenPoint, type IPoint, type TPlayer } from "@/Client";
     import { vResize, vClickOutside } from "../vueDirectives";
-    import axios, { type CancelTokenSource } from "axios";
+    import axios from "axios";
 
     interface ICalculatedFigure {
         x: number;
@@ -183,8 +183,6 @@
     const selectedFigure = ref<ITakenPoint | null>(null);
 
     const canRemoveOpponentsPiece = ref<boolean>(false);
-
-    const axiosCancelToken = ref<CancelTokenSource>(axios.CancelToken.source());
 
     const whitePlayer = ref<IPlayerData>({
         name: "White player",
@@ -555,9 +553,6 @@
                     difficulty: difficulty ?? EDifficulty.Easy,
                     depth: depth,
                     gameState: gameState.value,
-                },
-                {
-                    cancelToken: axiosCancelToken.value,
                 }
             );
         } catch (error) {
@@ -583,7 +578,7 @@
     }
 
     function resetGame() {
-        axiosCancelToken.value.cancel("Game reset");
+        Client.cancelRequest("Game reset");
 
         gameState.value = {
             player: "white",

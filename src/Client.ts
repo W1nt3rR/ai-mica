@@ -53,6 +53,8 @@ export interface IMapData {
 }
 
 export default class Client {
+    static axiosCancelToken: CancelTokenSource = axios.CancelToken.source();
+
     /**
      * Gets the list of maps
      */
@@ -64,11 +66,15 @@ export default class Client {
     /**
      * Calculates the next move for the AI
      */
-    public static async calculateMove(currentGameState: ICalculateMoveDTO, axiosOptions: IAxtiosOptions): Promise<IGameState> {
+    public static async calculateMove(currentGameState: ICalculateMoveDTO): Promise<IGameState> {
         const result = await axios.post("/calculatemove/", currentGameState, {
-            cancelToken: axiosOptions.cancelToken.token,
+            cancelToken: Client.axiosCancelToken.token,
         });
 
         return result.data;
+    }
+
+    public static cancelRequest(message: string = "Request canceled"): void {
+        Client.axiosCancelToken.cancel(message);
     }
 }
