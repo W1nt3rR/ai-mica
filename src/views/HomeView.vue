@@ -1042,6 +1042,10 @@
             flex-direction: column !important;
         }
 
+        .difficulty-cards {
+            flex-direction: column !important;
+        }
+
         .mica-container {
             width: 100%;
             aspect-ratio: 1;
